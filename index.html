@@ -34,8 +34,6 @@
       overflow-x:hidden;
       -webkit-tap-highlight-color: transparent;
     }
-
-    /* лёгкий фон — в lite отключим */
     body::before{
       content:""; position:fixed; inset:-18vmax; z-index:0; pointer-events:none;
       background:
@@ -46,11 +44,10 @@
     }
     @keyframes aura{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
 
-    /* безопасные зоны + высота экрана на мобилках */
     .wrap{
       position:relative;
-      min-height:100vh;       /* fallback */
-      min-height:100dvh;      /* корректно на мобильных */
+      min-height:100vh;
+      min-height:100dvh; /* корректные единицы на мобилках */
       display:grid; place-items:center;
       padding:32px 16px;
       padding-top: calc(env(safe-area-inset-top, 0px) + 18px);
@@ -63,8 +60,8 @@
       border-radius:var(--radius); background:linear-gradient(180deg,var(--glass-2),var(--glass));
       border:1px solid rgba(255,255,255,.08); box-shadow:var(--shadow);
       backdrop-filter:blur(12px) saturate(120%); -webkit-backdrop-filter:blur(12px) saturate(120%);
-      overflow:hidden; isolation:isolate;
-      will-change: transform;
+      overflow:visible; /* чтобы верх конверта не обрезался */
+      isolation:isolate;
     }
     .card::before{
       content:""; position:absolute; inset:-2px;
@@ -72,7 +69,6 @@
       filter:blur(22px); opacity:.28; z-index:-1; animation:spin 10s linear infinite;
     }
     @keyframes spin{to{transform:rotate(360deg)}}
-
     .title{display:flex;align-items:center;gap:12px;margin:0 0 10px}
     .heart{font-size:20px;filter:drop-shadow(0 0 10px rgba(255,51,153,.6));animation:throb 2s ease-in-out infinite}
     @keyframes throb{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
@@ -81,18 +77,21 @@
 
     .stage{display:grid;place-items:center;padding:18px 8px 8px}
 
-    /* === ENVELOPE ===
-       делаем ширину переменной и считаем высоту от неё (масштабируется на любых диагоналях) */
+    /* ===== ENVELOPE =====
+       масштабирование через переменную --scale и вращение через --rot */
     .envelope{
-      --w: min(440px, 94vw);          /* целевая ширина */
+      --w: min(440px, 94vw);
+      --scale: 1;
       width:var(--w);
-      height:calc(var(--w) * 0.60);   /* базовая высота (закрыт) */
+      height:calc(var(--w) * 0.60); /* базовая высота (закрыт) */
       position:relative; cursor:pointer; user-select:none;
       perspective:1200px; transform-style:preserve-3d;
-      outline:none; transition:transform .25s ease, height .45s cubic-bezier(.22,1,.27,1);
+      outline:none; transition:height .45s cubic-bezier(.22,1,.27,1);
       touch-action: manipulation;
+      transform-origin: top center;
+      transform: var(--rot, none) scale(var(--scale));
       will-change: transform, height;
-      contain: layout paint size;     /* изоляция для производительности */
+      contain: layout paint size;
     }
     .envelope:focus-visible{ box-shadow:0 0 0 2px var(--pink-2); border-radius:16px }
     .pocket{
@@ -124,7 +123,6 @@
       transition:transform .45s ease, opacity .45s ease;
     }
 
-    /* ПИСЬМО (растягивается по контенту) */
     .letter{
       position:absolute; left:6%; right:6%; top:14%; z-index:2;
       height:72%;
@@ -188,13 +186,13 @@
     .boom{position:fixed;left:0;top:0;font-size:28px;transform:translate(-50%,-50%);animation:rise 900ms ease-out forwards;filter:drop-shadow(0 0 8px rgba(255,51,153,.7));pointer-events:none;z-index:10}
     @keyframes rise{from{opacity:0;transform:translate(-50%,-30%) scale(.8)}to{opacity:1;transform:translate(-50%,-120%) scale(1.4)}}
 
-    /* мелкая адаптация */
+    /* компактная настройка */
     @media (max-width:480px){
       .card{ padding:20px 14px; }
       .actions .btn{ flex:1 1 100%; }
     }
 
-    /* LITE режим — вырубить тяжёлые эффекты на слабых/мобильных устройствах */
+    /* LITE: отключаем тяжёлые блики/анимации при необходимости */
     html[data-perf="lite"] body::before,
     html[data-perf="lite"] .card::before{ display:none !important; }
     html[data-perf="lite"] .heart{ animation: none !important; }
@@ -238,16 +236,15 @@
   <audio id="song" preload="auto" src="music.mp3"></audio>
 
   <script>
-    /* ======== определяем, когда включать LITE ======== */
+    /* ===== PERF / LITE ===== */
     const isCoarse = matchMedia('(pointer:coarse)').matches;
     const saveData = navigator.connection && navigator.connection.saveData;
     const lowMem   = navigator.deviceMemory && navigator.deviceMemory <= 4;
     const lowCPU   = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
     const perfLite = isCoarse || saveData || lowMem || lowCPU;
-
     document.documentElement.dataset.perf = perfLite ? 'lite' : 'full';
 
-    /* фоновые сердечки — на мобиле меньше */
+    /* ===== FLOATING HEARTS (меньше на мобиле) ===== */
     (function(){
       const root = document.querySelector('.floaters');
       const COUNT = perfLite ? 12 : 24;
@@ -275,25 +272,32 @@
     let openedOnce=false;
     let closedHeight = parseFloat(getComputedStyle(envelope).height);
 
+    envelope.addEventListener('click', openEnvelope);
+    envelope.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openEnvelope(); }});
+    replayBtn.addEventListener('click', resetEnvelope);
+
     function openEnvelope(){
       if(envelope.classList.contains('open')) return;
       envelope.classList.add('open');
       typeAll();
-      adjustEnvelope();
+      adjustEnvelope();      // подгон высоты
+      fitEnvelopeToScreen(); // и вписывание в экран
       burstConfetti();
       try{ navigator.vibrate && navigator.vibrate(8);}catch(e){}
-      if(!perfLite) startMusic();     // музыку включаем только если не lite
+      if(!perfLite) startMusic();
       openedOnce = true;
     }
     function resetEnvelope(){
       envelope.classList.remove('open');
+      envelope.style.setProperty('--scale', 1);
+      envelope.style.removeProperty('--rot');
       envelope.style.height = closedHeight+'px';
       letter.style.height = '';
       document.querySelectorAll('.type').forEach(p=> p.textContent='');
       setTimeout(openEnvelope,120);
     }
 
-    /* параллакс — только на десктопе */
+    /* ===== ПАРАЛЛАКС — только десктоп ===== */
     if(!isCoarse && !perfLite){
       let rect=null, maxTilt=8;
       envelope.addEventListener('pointerenter',()=> rect=envelope.getBoundingClientRect());
@@ -301,23 +305,17 @@
         if(!rect) rect=envelope.getBoundingClientRect();
         const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
         const dx=(e.clientX-cx)/(rect.width/2), dy=(e.clientY-cy)/(rect.height/2);
-        envelope.style.transform=`rotateX(${(-dy*maxTilt).toFixed(1)}deg) rotateY(${(dx*maxTilt).toFixed(1)}deg)`;
+        envelope.style.setProperty('--rot', `rotateX(${(-dy*maxTilt).toFixed(1)}deg) rotateY(${(dx*maxTilt).toFixed(1)}deg)`);
       });
-      envelope.addEventListener('pointerleave',()=> envelope.style.transform='rotateX(0) rotateY(0)');
+      envelope.addEventListener('pointerleave',()=> envelope.style.setProperty('--rot','none'));
     }
 
-    envelope.addEventListener('click', openEnvelope);
-    envelope.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openEnvelope(); }});
-    replayBtn.addEventListener('click', resetEnvelope);
-
-    /* ======== печать текста — rAF (меньше таймеров) ======== */
+    /* ===== ПЕЧАТЬ ===== */
     function typeLine(el, text, speed= perfLite ? 22 : 26){
       return new Promise(resolve=>{
         let i=0; const cursor=document.createElement('span'); cursor.className='cursor'; el.appendChild(cursor);
-
         function step(){
-          // печатаем по 2–3 символа за кадр, чтобы было плавнее и без лагов
-          let chunk = perfLite ? 3 : 2;
+          let chunk = perfLite ? 3 : 2;           // печатаем пачками
           while(chunk-- && i < text.length){
             el.insertBefore(document.createTextNode(text[i]), cursor);
             i++;
@@ -331,18 +329,18 @@
         step();
       });
     }
-
     async function typeAll(){
       const lines=[...document.querySelectorAll('.type')];
       for(const line of lines){
         const text=line.getAttribute('data-text')||'';
         await typeLine(line,text);
-        adjustEnvelope();                    // подгоняем высоту
-        if(!perfLite) await new Promise(r=> setTimeout(r,180));
+        adjustEnvelope();
+        fitEnvelopeToScreen();
+        if(!perfLite) await new Promise(r=> setTimeout(r,160));
       }
     }
 
-    /* высота конверта под контент */
+    /* ===== АВТО-ВЫСОТА ===== */
     function adjustEnvelope(){
       if(!envelope.classList.contains('open')) return;
       letter.style.height='auto';
@@ -351,15 +349,26 @@
       const targetH = Math.max(closedHeight, Math.ceil((letterH + bottomReserve)/0.86));
       envelope.style.height = targetH + 'px';
     }
-    if('ResizeObserver' in window){
-      new ResizeObserver(()=> adjustEnvelope()).observe(letter);
-    }
-    window.addEventListener('resize', ()=>{
-      closedHeight = parseFloat(getComputedStyle(envelope).height);
-      adjustEnvelope();
-    });
 
-    /* конфетти — сокращаем в lite */
+    /* ===== ВПИСЫВАНИЕ В ЭКРАН (главное исправление) =====
+       Если итоговая высота конверта больше доступной — уменьшаем масштабом. */
+    function fitEnvelopeToScreen(){
+      const rect = envelope.getBoundingClientRect();
+      const vh = Math.max(window.innerHeight, document.documentElement.clientHeight);
+      // запас сверху/снизу под заголовок/подсказку
+      const safeTop = 140;   // примерно под заголовок
+      const safeBottom = 120; // под подсказку/нижнюю панель браузера
+      const maxH = Math.max(240, vh - (safeTop + safeBottom));
+      const scale = Math.min(1, maxH / rect.height);
+      envelope.style.setProperty('--scale', scale.toFixed(3));
+    }
+
+    if('ResizeObserver' in window){
+      new ResizeObserver(()=> { adjustEnvelope(); fitEnvelopeToScreen(); }).observe(letter);
+    }
+    window.addEventListener('resize', ()=>{ closedHeight = parseFloat(getComputedStyle(envelope).height); fitEnvelopeToScreen(); });
+
+    /* ===== КОНФЕТТИ ===== */
     function burstConfetti(){
       const pieces = perfLite ? 24 : (isCoarse ? 40 : 80);
       const colors=['#ff4fa3','#ff84d8','#ffd1f1','#ffffff'];
@@ -375,7 +384,7 @@
       }
     }
 
-    // искры — только на десктопе
+    // «искры» за мышкой — только десктоп
     if(!isCoarse && !perfLite){
       let lastSpark=0;
       window.addEventListener('pointermove',e=>{
@@ -385,7 +394,7 @@
       },{passive:true});
     }
 
-    // сердечко на клик — лёгкое, везде
+    // маленькое сердечко на клик
     window.addEventListener('click',e=>{
       const h=document.createElement('div'); h.className='boom';
       h.textContent=['💖','💗','💞','✨'][Math.floor(Math.random()*4)];
@@ -401,7 +410,7 @@
       themeBtn.textContent = next==='extra-pink'?'Сделать спокойнее 🖤':'Сделать ещё розовее 🌸';
     });
 
-    /* музыка — по кнопке, на lite по умолчанию не стартует */
+    /* музыка — вручную по кнопке (в lite не автостартует) */
     let musicOn=false, ctx, gain, beatTimer;
     function startMusic(){
       if(song && song.src && !song.src.endsWith('#disabled')){
@@ -415,14 +424,14 @@
     function stopMusic(){ if(song && !song.paused) song.pause(); if(ctx){ctx.close();ctx=null;clearInterval(beatTimer)} musicOn=false; musicBtn.textContent='Немного музыки 🎵'; }
     musicBtn.addEventListener('click', ()=> musicOn?stopMusic():startMusic());
 
-    /* поделиться / скопировать */
+    /* поделиться */
     shareBtn.addEventListener('click', async ()=>{
       const text=[...document.querySelectorAll('.type')].map(p=>p.getAttribute('data-text')).join('\n');
       try{ if(navigator.share){ await navigator.share({title:'Прости меня 💌', text}); } else { await navigator.clipboard.writeText(text); shareBtn.textContent='Скопировано ✅'; setTimeout(()=>shareBtn.textContent='Поделиться 💬',1200);} }
       catch(e){}
     });
 
-    // лёгкая подсказка
+    // подсказка-«подпрыгивание»
     setTimeout(()=>{ if(!openedOnce){ envelope.animate([{transform:'translateY(0)'},{transform:'translateY(-6px)'},{transform:'translateY(0)'}],{duration:800,iterations:1}); }},900);
   </script>
 </body>
