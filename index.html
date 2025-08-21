@@ -34,24 +34,27 @@
       overflow-x:hidden;
       -webkit-tap-highlight-color: transparent;
     }
+
+    /* лёгкий фон — в lite отключим */
     body::before{
       content:""; position:fixed; inset:-18vmax; z-index:0; pointer-events:none;
       background:
         radial-gradient(ellipse at 30% 30%, rgba(255,77,160,.08), transparent 60%),
         radial-gradient(ellipse at 70% 70%, rgba(255,150,230,.06), transparent 60%);
       filter:blur(40px); animation:aura 8s ease-in-out infinite;
+      will-change: transform;
     }
     @keyframes aura{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
 
-    /* высота экрана с учётом адресной строки/чёлки */
+    /* безопасные зоны + высота экрана на мобилках */
     .wrap{
       position:relative;
-      min-height:100vh;              /* fallback */
-      min-height:100svh;             /* новые мобильные */
+      min-height:100vh;       /* fallback */
+      min-height:100dvh;      /* корректно на мобильных */
       display:grid; place-items:center;
-      padding:40px 16px;
-      padding-top: calc(env(safe-area-inset-top, 0px) + 24px);
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+      padding:32px 16px;
+      padding-top: calc(env(safe-area-inset-top, 0px) + 18px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
       z-index:1;
     }
 
@@ -61,6 +64,7 @@
       border:1px solid rgba(255,255,255,.08); box-shadow:var(--shadow);
       backdrop-filter:blur(12px) saturate(120%); -webkit-backdrop-filter:blur(12px) saturate(120%);
       overflow:hidden; isolation:isolate;
+      will-change: transform;
     }
     .card::before{
       content:""; position:absolute; inset:-2px;
@@ -68,22 +72,27 @@
       filter:blur(22px); opacity:.28; z-index:-1; animation:spin 10s linear infinite;
     }
     @keyframes spin{to{transform:rotate(360deg)}}
+
     .title{display:flex;align-items:center;gap:12px;margin:0 0 10px}
     .heart{font-size:20px;filter:drop-shadow(0 0 10px rgba(255,51,153,.6));animation:throb 2s ease-in-out infinite}
     @keyframes throb{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
-    .subtitle{margin:0 0 16px;color:var(--muted);font-size:.98rem}
+    .subtitle{margin:0 0 16px;color:var(--muted);font-size:clamp(.95rem,2.6vw,1rem)}
     .glow{background:linear-gradient(90deg,#fff,#ffe4f7,#ffd0f0);-webkit-background-clip:text;background-clip:text;color:transparent}
 
     .stage{display:grid;place-items:center;padding:18px 8px 8px}
 
-    /* === ENVELOPE === */
+    /* === ENVELOPE ===
+       делаем ширину переменной и считаем высоту от неё (масштабируется на любых диагоналях) */
     .envelope{
-      width:min(420px,94vw);
-      height:min(260px,58vw);         /* базовая высота (закрыт) */
+      --w: min(440px, 94vw);          /* целевая ширина */
+      width:var(--w);
+      height:calc(var(--w) * 0.60);   /* базовая высота (закрыт) */
       position:relative; cursor:pointer; user-select:none;
       perspective:1200px; transform-style:preserve-3d;
       outline:none; transition:transform .25s ease, height .45s cubic-bezier(.22,1,.27,1);
       touch-action: manipulation;
+      will-change: transform, height;
+      contain: layout paint size;     /* изоляция для производительности */
     }
     .envelope:focus-visible{ box-shadow:0 0 0 2px var(--pink-2); border-radius:16px }
     .pocket{
@@ -103,6 +112,7 @@
       filter:drop-shadow(0 10px 20px rgba(255,51,153,.45));
       border-top-left-radius:16px;border-top-right-radius:16px;
       backface-visibility:hidden;-webkit-backface-visibility:hidden;
+      will-change: transform;
     }
     .flap::after{content:""; position:absolute; inset:0; clip-path:polygon(0 0,100% 0,50% 56%); background:linear-gradient(180deg,rgba(255,255,255,.35),transparent 55%); mix-blend-mode:screen; opacity:.25}
     .seal{
@@ -111,22 +121,21 @@
       color:#10010a; font-weight:800; padding:12px 16px; border-radius:999px;
       border:1px solid rgba(255,255,255,.75); box-shadow:0 6px 18px rgba(255,51,153,.55);
       text-shadow:0 1px 0 rgba(255,255,255,.4); white-space:nowrap;
-      transition:transform .45s ease, opacity .45s ease; animation:wobble 3s ease-in-out infinite;
+      transition:transform .45s ease, opacity .45s ease;
     }
-    @keyframes wobble{50%{transform:translate(-50%,-50%) scale(1.04)}}
-    .seal small{display:block;font-size:12px;opacity:.7;font-weight:700}
 
     /* ПИСЬМО (растягивается по контенту) */
     .letter{
       position:absolute; left:6%; right:6%; top:14%; z-index:2;
       height:72%;
       background:linear-gradient(180deg,#1a1a22,#0f0f14); border:1px solid rgba(255,255,255,.1);
-      border-radius:12px; padding:18px 16px 16px;
+      border-radius:12px; padding:18px 16px 18px;
       transform:translateY(32%) rotateX(-16deg) translateZ(4px);
       transform-origin:50% 100%;
       box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 16px 30px rgba(0,0,0,.55);
       opacity:0; transition: transform 1s cubic-bezier(.22,1,.27,1), opacity .6s ease, height .45s cubic-bezier(.22,1,.27,1);
       overflow:hidden;
+      will-change: transform, height;
     }
     .envelope.open .letter{
       height:auto;
@@ -136,13 +145,14 @@
 
     .letter h2{margin:0 0 10px;font-size:clamp(18px,2.4vw,22px)}
     .type{
-      font-size:clamp(15px,2.8vw,17px);
+      font-size:clamp(15px,3.2vw,17px);
       line-height:1.7; color:#f7e9f5; opacity:.96;
       margin:6px 0; padding-right:8px; position:relative;
       overflow-wrap:anywhere; hyphens:auto;
     }
     .cursor{display:inline-block;width:8px;height:1.1em;background:var(--pink-2);margin-left:2px;vertical-align:-2px;animation:blink .9s steps(1,end) infinite}
     @keyframes blink{50%{opacity:0}}
+
     .cta{text-align:center;margin-top:14px;color:var(--muted);font-size:clamp(.92rem,3.2vw,1rem)}
 
     .actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:16px}
@@ -154,7 +164,7 @@
       box-shadow:0 8px 16px rgba(0,0,0,.35);
       backdrop-filter:blur(8px) saturate(120%); -webkit-backdrop-filter:blur(8px) saturate(120%);
       font-weight:600;user-select:none;position:relative;overflow:hidden;
-      touch-action: manipulation;
+      touch-action: manipulation; min-height:44px;
     }
     .btn:hover{transform:translateY(-1px); box-shadow:0 10px 18px rgba(0,0,0,.4), 0 0 16px rgba(255,51,153,.35)}
     .btn:active{transform:translateY(0) scale(.99)}
@@ -178,18 +188,17 @@
     .boom{position:fixed;left:0;top:0;font-size:28px;transform:translate(-50%,-50%);animation:rise 900ms ease-out forwards;filter:drop-shadow(0 0 8px rgba(255,51,153,.7));pointer-events:none;z-index:10}
     @keyframes rise{from{opacity:0;transform:translate(-50%,-30%) scale(.8)}to{opacity:1;transform:translate(-50%,-120%) scale(1.4)}}
 
-    /* Мобильные доработки */
+    /* мелкая адаптация */
     @media (max-width:480px){
       .card{ padding:20px 14px; }
-      .envelope{ width:94vw; }
       .actions .btn{ flex:1 1 100%; }
-      .subtitle{ font-size:1rem; }
     }
 
-    @media (prefers-reduced-motion:reduce){
-      *{animation:none !important;transition:none !important}
-      .floaters,.confetti,.spark,.boom{display:none !important}
-    }
+    /* LITE режим — вырубить тяжёлые эффекты на слабых/мобильных устройствах */
+    html[data-perf="lite"] body::before,
+    html[data-perf="lite"] .card::before{ display:none !important; }
+    html[data-perf="lite"] .heart{ animation: none !important; }
+    html[data-perf="lite"] .flap::after{ opacity:.15; }
   </style>
 </head>
 <body>
@@ -229,19 +238,25 @@
   <audio id="song" preload="auto" src="music.mp3"></audio>
 
   <script>
-    /* ====== настройки под мобильные ====== */
-    const isCoarse = window.matchMedia('(pointer:coarse)').matches;
+    /* ======== определяем, когда включать LITE ======== */
+    const isCoarse = matchMedia('(pointer:coarse)').matches;
+    const saveData = navigator.connection && navigator.connection.saveData;
+    const lowMem   = navigator.deviceMemory && navigator.deviceMemory <= 4;
+    const lowCPU   = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
+    const perfLite = isCoarse || saveData || lowMem || lowCPU;
 
-    /* фоновые сердечки */
+    document.documentElement.dataset.perf = perfLite ? 'lite' : 'full';
+
+    /* фоновые сердечки — на мобиле меньше */
     (function(){
       const root = document.querySelector('.floaters');
-      const COUNT = isCoarse ? 16 : 28;         // меньше на телефоне
+      const COUNT = perfLite ? 12 : 24;
       const emojis = ['❤','💖','💗','💓','💞','✨'];
       for(let i=0;i<COUNT;i++){
         const el = document.createElement('div'); el.className='heart-f';
         el.textContent = emojis[Math.floor(Math.random()*emojis.length)];
         el.style.left = Math.random()*100+'vw';
-        const dur = (isCoarse?16:18)+Math.random()*(isCoarse?14:20);
+        const dur = (perfLite?14:18)+Math.random()*(perfLite?10:20);
         const delay = -Math.random()*dur;
         el.style.animationDuration = dur+'s'; el.style.animationDelay = delay+'s';
         root.appendChild(el);
@@ -266,8 +281,8 @@
       typeAll();
       adjustEnvelope();
       burstConfetti();
-      try{ navigator.vibrate && navigator.vibrate(10);}catch(e){}
-      startMusic();
+      try{ navigator.vibrate && navigator.vibrate(8);}catch(e){}
+      if(!perfLite) startMusic();     // музыку включаем только если не lite
       openedOnce = true;
     }
     function resetEnvelope(){
@@ -275,12 +290,12 @@
       envelope.style.height = closedHeight+'px';
       letter.style.height = '';
       document.querySelectorAll('.type').forEach(p=> p.textContent='');
-      setTimeout(openEnvelope,140);
+      setTimeout(openEnvelope,120);
     }
 
-    /* Параллакс-наклон — отключаем на тач-устройствах */
-    let rect=null, maxTilt=8;
-    if(!isCoarse){
+    /* параллакс — только на десктопе */
+    if(!isCoarse && !perfLite){
+      let rect=null, maxTilt=8;
       envelope.addEventListener('pointerenter',()=> rect=envelope.getBoundingClientRect());
       envelope.addEventListener('pointermove',e=>{
         if(!rect) rect=envelope.getBoundingClientRect();
@@ -295,30 +310,39 @@
     envelope.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openEnvelope(); }});
     replayBtn.addEventListener('click', resetEnvelope);
 
-    /* ПЕЧАТЬ */
-    function typeLine(el, text, speed= isCoarse ? 22 : 26){
+    /* ======== печать текста — rAF (меньше таймеров) ======== */
+    function typeLine(el, text, speed= perfLite ? 22 : 26){
       return new Promise(resolve=>{
         let i=0; const cursor=document.createElement('span'); cursor.className='cursor'; el.appendChild(cursor);
-        const step=()=>{
-          if(i<text.length){
-            el.insertBefore(document.createTextNode(text[i]), cursor); i++;
-            setTimeout(step, text[i-1]===' ' ? speed/2 : speed);
-          }else{ cursor.remove(); resolve(); }
-        };
+
+        function step(){
+          // печатаем по 2–3 символа за кадр, чтобы было плавнее и без лагов
+          let chunk = perfLite ? 3 : 2;
+          while(chunk-- && i < text.length){
+            el.insertBefore(document.createTextNode(text[i]), cursor);
+            i++;
+          }
+          if(i < text.length){
+            requestAnimationFrame(step);
+          }else{
+            cursor.remove(); resolve();
+          }
+        }
         step();
       });
     }
+
     async function typeAll(){
       const lines=[...document.querySelectorAll('.type')];
       for(const line of lines){
         const text=line.getAttribute('data-text')||'';
         await typeLine(line,text);
-        adjustEnvelope();
-        await new Promise(r=> setTimeout(r,200));
+        adjustEnvelope();                    // подгоняем высоту
+        if(!perfLite) await new Promise(r=> setTimeout(r,180));
       }
     }
 
-    /* авто-расчёт высоты */
+    /* высота конверта под контент */
     function adjustEnvelope(){
       if(!envelope.classList.contains('open')) return;
       letter.style.height='auto';
@@ -327,33 +351,32 @@
       const targetH = Math.max(closedHeight, Math.ceil((letterH + bottomReserve)/0.86));
       envelope.style.height = targetH + 'px';
     }
-    if ('ResizeObserver' in window) {
+    if('ResizeObserver' in window){
       new ResizeObserver(()=> adjustEnvelope()).observe(letter);
-    } else {
-      setInterval(adjustEnvelope, 300);
     }
     window.addEventListener('resize', ()=>{
       closedHeight = parseFloat(getComputedStyle(envelope).height);
       adjustEnvelope();
     });
 
-    /* Конфетти/клики */
+    /* конфетти — сокращаем в lite */
     function burstConfetti(){
-      const pieces = isCoarse ? 40 : 80;
+      const pieces = perfLite ? 24 : (isCoarse ? 40 : 80);
       const colors=['#ff4fa3','#ff84d8','#ffd1f1','#ffffff'];
       const r=envelope.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height*0.52;
       for(let i=0;i<pieces;i++){
         const p=document.createElement('div'); p.className='piece'+(Math.random()>.45?' heart':'');
         p.style.left=cx+'px'; p.style.top=cy+'px';
-        const angle=Math.random()*Math.PI*2, dist=60+Math.random()*240;
+        const angle=Math.random()*Math.PI*2, dist=60+Math.random()*(perfLite?160:240);
         p.style.setProperty('--dx', Math.cos(angle)*dist+'px');
         p.style.setProperty('--dy', Math.sin(angle)*dist-30+'px');
         p.style.color=colors[Math.floor(Math.random()*colors.length)];
-        confetti.appendChild(p); setTimeout(()=>p.remove(),1400);
+        confetti.appendChild(p); setTimeout(()=>p.remove(),1200);
       }
     }
-    // искры только на десктопе (экономия батареи)
-    if(!isCoarse){
+
+    // искры — только на десктопе
+    if(!isCoarse && !perfLite){
       let lastSpark=0;
       window.addEventListener('pointermove',e=>{
         const now=performance.now(); if(now-lastSpark<18) return; lastSpark=now;
@@ -361,6 +384,8 @@
         document.body.appendChild(s); setTimeout(()=>s.remove(),900);
       },{passive:true});
     }
+
+    // сердечко на клик — лёгкое, везде
     window.addEventListener('click',e=>{
       const h=document.createElement('div'); h.className='boom';
       h.textContent=['💖','💗','💞','✨'][Math.floor(Math.random()*4)];
@@ -368,7 +393,7 @@
       document.body.appendChild(h); setTimeout(()=>h.remove(),900);
     });
 
-    /* Тема */
+    /* темы */
     themeBtn.addEventListener('click', ()=>{
       const html=document.documentElement;
       const next=html.getAttribute('data-theme')==='extra-pink'?'amoled-pink':'extra-pink';
@@ -376,13 +401,13 @@
       themeBtn.textContent = next==='extra-pink'?'Сделать спокойнее 🖤':'Сделать ещё розовее 🌸';
     });
 
-    /* Музыка */
+    /* музыка — по кнопке, на lite по умолчанию не стартует */
     let musicOn=false, ctx, gain, beatTimer;
     function startMusic(){
       if(song && song.src && !song.src.endsWith('#disabled')){
-        song.volume=.6; song.loop=true; song.play().catch(()=>{}); musicOn=true; musicBtn.textContent='Пауза 🎵'; return;
+        song.volume=.55; song.loop=true; song.play().catch(()=>{}); musicOn=true; musicBtn.textContent='Пауза 🎵'; return;
       }
-      if(!ctx){ ctx=new (window.AudioContext||window.webkitAudioContext)(); gain=ctx.createGain(); gain.gain.value=.06; gain.connect(ctx.destination); }
+      if(!ctx){ ctx=new (window.AudioContext||window.webkitAudioContext)(); gain=ctx.createGain(); gain.gain.value=.05; gain.connect(ctx.destination); }
       const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=432; osc.connect(gain); osc.start();
       beatTimer=setInterval(()=>{ const g=gain.gain, v=g.value; g.setValueAtTime(v,ctx.currentTime); g.linearRampToValueAtTime(v*3,ctx.currentTime+.06); g.linearRampToValueAtTime(v,ctx.currentTime+.5); },1200);
       musicOn=true; musicBtn.textContent='Пауза 🎵';
@@ -390,15 +415,15 @@
     function stopMusic(){ if(song && !song.paused) song.pause(); if(ctx){ctx.close();ctx=null;clearInterval(beatTimer)} musicOn=false; musicBtn.textContent='Немного музыки 🎵'; }
     musicBtn.addEventListener('click', ()=> musicOn?stopMusic():startMusic());
 
-    /* Share / Copy */
+    /* поделиться / скопировать */
     shareBtn.addEventListener('click', async ()=>{
       const text=[...document.querySelectorAll('.type')].map(p=>p.getAttribute('data-text')).join('\n');
       try{ if(navigator.share){ await navigator.share({title:'Прости меня 💌', text}); } else { await navigator.clipboard.writeText(text); shareBtn.textContent='Скопировано ✅'; setTimeout(()=>shareBtn.textContent='Поделиться 💬',1200);} }
       catch(e){}
     });
 
-    // подсказка
-    setTimeout(()=>{ if(!openedOnce){ envelope.animate([{transform:'translateY(0)'},{transform:'translateY(-6px)'},{transform:'translateY(0)'}],{duration:900,iterations:1}); }},1200);
+    // лёгкая подсказка
+    setTimeout(()=>{ if(!openedOnce){ envelope.animate([{transform:'translateY(0)'},{transform:'translateY(-6px)'},{transform:'translateY(0)'}],{duration:800,iterations:1}); }},900);
   </script>
 </body>
 </html>
